@@ -1,46 +1,55 @@
-from fastapi import FastAPI, UploadFile, File, Header, HTTPException
+from fastapi import FastAPI, UploadFile, File, Header, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 import csv
 import io
 
 app = FastAPI()
 
-# ✅ Correct CORS configuration
+# Proper CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=False,
-    allow_methods=["*"],   # MUST be "*"
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Constants
-MAX_FILE_SIZE = 88 * 1024  # 88 KB
+MAX_FILE_SIZE = 88 * 1024
 VALID_EXTENSIONS = {".csv", ".json", ".txt"}
 REQUIRED_TOKEN = "howlprelp9ftxxnf"
 
 
+@app.get("/")
+def health(response: Response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    return {"status": "ok"}
+
+
 @app.post("/upload")
 async def upload_file(
+    response: Response,
     file: UploadFile = File(...),
     x_upload_token_5790: str = Header(None)
 ):
+    # 🔥 Force CORS header manually
+    response.headers["Access-Control-Allow-Origin"] = "*"
 
-    # 1️⃣ Authentication
+    # Authentication
     if x_upload_token_5790 != REQUIRED_TOKEN:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    # 2️⃣ File type validation
+    # File type check
     filename = file.filename.lower()
     if not any(filename.endswith(ext) for ext in VALID_EXTENSIONS):
         raise HTTPException(status_code=400, detail="Invalid file type")
 
-    # 3️⃣ File size validation
     contents = await file.read()
+
+    # File size check
     if len(contents) > MAX_FILE_SIZE:
         raise HTTPException(status_code=413, detail="File too large")
 
-    # 4️⃣ CSV Processing
+    # CSV processing
     if filename.endswith(".csv"):
         try:
             decoded = contents.decode("utf-8")
@@ -70,7 +79,6 @@ async def upload_file(
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid CSV format")
 
-    # 5️⃣ Valid non-CSV
     return {
         "message": "File uploaded successfully",
         "filename": file.filename
