@@ -5,12 +5,12 @@ import io
 
 app = FastAPI()
 
-# Enable CORS (allow POST from any origin)
+# ✅ Correct CORS configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["POST"],
+    allow_credentials=False,  # MUST be False when using "*"
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
@@ -40,7 +40,7 @@ async def upload_file(
     if len(contents) > MAX_FILE_SIZE:
         raise HTTPException(status_code=413, detail="File too large")
 
-    # 4️⃣ If CSV → Process
+    # 4️⃣ CSV Processing
     if filename.endswith(".csv"):
         try:
             decoded = contents.decode("utf-8")
@@ -50,16 +50,13 @@ async def upload_file(
             row_count = len(rows)
             columns = reader.fieldnames
 
-            total_value = 0
+            total_value = 0.0
             category_counts = {}
 
             for row in rows:
-                if "value" in row:
-                    total_value += float(row["value"])
-
-                if "category" in row:
-                    category = row["category"]
-                    category_counts[category] = category_counts.get(category, 0) + 1
+                total_value += float(row["value"])
+                category = row["category"]
+                category_counts[category] = category_counts.get(category, 0) + 1
 
             return {
                 "email": "24f1000352@ds.study.iitm.ac.in",
@@ -73,7 +70,7 @@ async def upload_file(
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid CSV format")
 
-    # 5️⃣ For valid non-CSV files
+    # 5️⃣ Valid non-CSV
     return {
         "message": "File uploaded successfully",
         "filename": file.filename
