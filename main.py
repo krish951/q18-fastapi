@@ -1,5 +1,6 @@
-from fastapi import FastAPI, UploadFile, File, Header, HTTPException, Response
+from fastapi import FastAPI, UploadFile, File, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 import csv
 import io
 
@@ -19,37 +20,37 @@ VALID_EXTENSIONS = {".csv", ".json", ".txt"}
 REQUIRED_TOKEN = "howlprelp9ftxxnf"
 
 
-@app.get("/")
-def health(response: Response):
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    return {"status": "ok"}
+# 🔥 Explicit OPTIONS handler for grader
+@app.options("/upload")
+async def options_upload():
+    return JSONResponse(
+        content={"message": "OK"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+        },
+    )
 
 
 @app.post("/upload")
 async def upload_file(
-    response: Response,
     file: UploadFile = File(...),
     x_upload_token_5790: str = Header(None)
 ):
-    # 🔥 Force CORS header manually
-    response.headers["Access-Control-Allow-Origin"] = "*"
-
     # Authentication
     if x_upload_token_5790 != REQUIRED_TOKEN:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    # File type check
     filename = file.filename.lower()
     if not any(filename.endswith(ext) for ext in VALID_EXTENSIONS):
         raise HTTPException(status_code=400, detail="Invalid file type")
 
     contents = await file.read()
 
-    # File size check
     if len(contents) > MAX_FILE_SIZE:
         raise HTTPException(status_code=413, detail="File too large")
 
-    # CSV processing
     if filename.endswith(".csv"):
         try:
             decoded = contents.decode("utf-8")
@@ -67,19 +68,25 @@ async def upload_file(
                 category = row["category"]
                 category_counts[category] = category_counts.get(category, 0) + 1
 
-            return {
-                "email": "24f1000352@ds.study.iitm.ac.in",
-                "filename": file.filename,
-                "rows": row_count,
-                "columns": columns,
-                "totalValue": round(total_value, 2),
-                "categoryCounts": category_counts
-            }
+            return JSONResponse(
+                content={
+                    "email": "24f1000352@ds.study.iitm.ac.in",
+                    "filename": file.filename,
+                    "rows": row_count,
+                    "columns": columns,
+                    "totalValue": round(total_value, 2),
+                    "categoryCounts": category_counts,
+                },
+                headers={"Access-Control-Allow-Origin": "*"},
+            )
 
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid CSV format")
 
-    return {
-        "message": "File uploaded successfully",
-        "filename": file.filename
-    }
+    return JSONResponse(
+        content={
+            "message": "File uploaded successfully",
+            "filename": file.filename,
+        },
+        headers={"Access-Control-Allow-Origin": "*"},
+    )
